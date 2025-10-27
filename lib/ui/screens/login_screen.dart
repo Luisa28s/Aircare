@@ -1,3 +1,4 @@
+// 📁 file: lib/screens/login/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -24,11 +25,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   void initState() {
     super.initState();
     _animCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 800));
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
     _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut);
-    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero)
-        .animate(
-            CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutCubic));
+    _slideAnim = Tween<Offset>(
+      begin: const Offset(0, 0.2),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutCubic));
 
     _animCtrl.forward();
   }
@@ -42,12 +46,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   void _login() {
-    const validUser = 'usuario';
-    const validPass = 'labasura1*';
+    final username = _userCtrl.text.trim();
+    final password = _passCtrl.text.trim();
 
-    if (_userCtrl.text == validUser && _passCtrl.text == validPass) {
-      ref.read(authProvider.notifier).login();
+    // Llama al provider de autenticación
+    ref.read(authProvider.notifier).login(username, password);
 
+    final loggedIn = ref.read(authProvider);
+    if (loggedIn) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('✅ Bienvenido a AirCare'),
@@ -55,6 +61,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           duration: Duration(seconds: 2),
         ),
       );
+
+      // 👉 Si tienes una pantalla principal, puedes navegar hacia ella:
+      // Navigator.pushReplacementNamed(context, '/home');
     } else {
       setState(() => error = 'Usuario o contraseña incorrectos');
     }
@@ -115,7 +124,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       ),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 28, vertical: 32),
+                          horizontal: 28,
+                          vertical: 32,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [

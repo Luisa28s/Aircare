@@ -25,18 +25,20 @@ class SettingsScreen extends ConsumerWidget {
           TextField(
             decoration: const InputDecoration(
               labelText: 'URL del dispositivo (HTTP)',
-              hintText: 'http://192.168.4.1',
+              hintText: 'http://192.168.1.9',
               prefixIcon: Icon(Icons.link),
               border: OutlineInputBorder(),
             ),
             controller: TextEditingController(text: url),
-            onSubmitted: (v) => ref.read(baseUrlProvider.notifier).state = v.trim(),
+            onSubmitted: (v) =>
+                ref.read(baseUrlProvider.notifier).state = v.trim(),
           ),
           const SizedBox(height: 24),
           ListTile(
             leading: const Icon(Icons.medical_information_outlined),
             title: const Text('Descargo de responsabilidad'),
-            subtitle: const Text('Esta app no sustituye consejo médico. Úsala como apoyo preventivo.'),
+            subtitle: const Text(
+                'Esta app no sustituye consejo médico. Úsala como apoyo preventivo.'),
           ),
         ],
       ),
