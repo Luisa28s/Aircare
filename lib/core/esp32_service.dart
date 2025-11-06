@@ -1,12 +1,22 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Esp32Service {
-  // Reemplazar esta IP por la que tu ESP32 muestra en el monitor serie
-  final String baseUrl = 'http://192.168.1.9/';
+  Future<String?> _getSavedIp() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('device_ip');
+  }
 
   Future<Map<String, dynamic>> getAirData() async {
-    final response = await http.get(Uri.parse(baseUrl));
+    final ip = await _getSavedIp();
+
+    if (ip == null || ip.isEmpty) {
+      throw Exception('No se ha configurado la dirección IP del dispositivo.');
+    }
+
+    final url = 'http://$ip/';
+    final response = await http.get(Uri.parse(url));
 
     if (response.statusCode == 200) {
       return json.decode(response.body);

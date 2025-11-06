@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'package:aircare/ui/screens/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:percent_indicator/percent_indicator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/models.dart';
 import '../../state/providers.dart';
 import '../../state/history_notifier.dart';
 import '../../utils/forecast.dart';
+import 'ip_setup_screen.dart'; // ✅ Para redirigir al cambio de IP
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -21,15 +24,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   late Animation<double> _fade;
   Color _startColor = const Color(0xFF007AFF);
   Color _endColor = const Color(0xFF00C6FF);
+  String? _deviceIp;
 
   @override
   void initState() {
     super.initState();
+    _loadDeviceIp();
     _timer = Timer.periodic(const Duration(minutes: 1), (_) {
       ref.invalidate(airStreamProvider);
     });
     _animCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 800));
+        vsync: this, duration: const Duration(milliseconds: 50));
     _fade = CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut);
     _animCtrl.forward();
   }
@@ -41,6 +46,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     super.dispose();
   }
 
+  // ✅ Cargar la IP guardada del dispositivo y actualizar provider
+  Future<void> _loadDeviceIp() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedIp = prefs.getString('device_ip');
+
+    if (savedIp == null || savedIp.isEmpty) {
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const IpSetupScreen()),
+        );
+      }
+      return;
+    }
+
+    // ✅ Actualizar el provider global con la IP guardada
+    ref.read(baseUrlProvider.notifier).state = 'http://$savedIp';
+    debugPrint('✅ Usando IP del dispositivo: http://$savedIp');
+
+    setState(() {
+      _deviceIp = savedIp;
+    });
+  }
+
+  // ✅ Cambiar IP manualmente (botón en AppBar)
+  Future<void> _changeIp() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('device_ip');
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const IpSetupScreen()),
+      );
+    }
+  }
+
+  // ✅ Transición suave del fondo
   void _updateBackground(Color mainColor) {
     setState(() {
       _startColor = mainColor.withOpacity(0.8);
@@ -84,7 +126,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   const Text(
                     'AirCare',
                     style: TextStyle(
-                      fontSize: 22,
+                      fontSize: 25,
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.5,
@@ -92,6 +134,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                   Row(
                     children: [
+                      IconButton(
+                        icon: const Icon(Icons.settings, color: Colors.white),
+                        tooltip: 'Configurar IP',
+                        onPressed: _changeIp,
+                      ),
                       IconButton(
                         icon:
                             const Icon(Icons.help_outline, color: Colors.white),
@@ -109,7 +156,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                       '🔹 V (Voltaje): Valor del voltaje medido por el sensor. Indica la intensidad eléctrica asociada a partículas o gases en el aire.'),
                                   SizedBox(height: 6),
                                   Text(
-                                      '🔹  ADC (Conversión Analógica-Digital): Valor numérico que representa la señal analógica del sensor. '
+                                      '🔹 ADC (Conversión Analógica-Digital): Valor numérico que representa la señal analógica del sensor. '
                                       'Un valor ADC alto puede indicar mayor concentración de contaminantes.'),
                                 ],
                               ),
@@ -148,7 +195,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             ),
                           );
                           if (confirm == true) {
+                            // 🔹 Cierra sesión
                             ref.read(authProvider.notifier).logout();
+                            // 🔹 Borra IP guardada (opcional)
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.remove('device_ip');
+                            // 🔹 Redirige al login
+                            if (mounted) {
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const LoginScreen()),
+                                (route) => false,
+                              );
+                            }
                           }
                         },
                       ),
@@ -163,7 +223,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
       // ======== BODY ========
       body: AnimatedContainer(
-        duration: const Duration(milliseconds: 800),
+        duration: const Duration(milliseconds: 500),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [_startColor, _endColor],
@@ -190,7 +250,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               color = Colors.green.shade600;
               icon = Icons.eco_rounded;
               recomendaciones = [
-                '🌿 Excelente momento para ventilar tu espacio .',
+                '🌿 Excelente momento para ventilar tu espacio.',
                 'Realiza caminatas o ejercicio al aire libre.',
                 'No se requieren medidas especiales.',
               ];
@@ -206,7 +266,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               color = Colors.red.shade700;
               icon = Icons.dangerous_rounded;
               recomendaciones = [
-                '💀 Evita salir de casa o exponerte al exterior .',
+                '💀 Evita salir de casa o exponerte al exterior.',
                 'Usa purificadores o mascarilla N95.',
                 'Mantén puertas y ventanas cerradas.',
               ];
@@ -231,12 +291,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               } else if (forecast < 2.0) {
                 estado = 'moderada';
                 explicacion =
-                    'Ligero aumento de partículas, pero aún respirable.'
-                    ' 🌤 La calidad del aire se mantendrá estable durante la próxima hora.';
+                    '🌤 La calidad del aire se mantendrá estable durante la próxima hora.';
                 trendIcon = Icons.trending_up;
               } else {
                 estado = 'mala';
-                explicacion = 'Incremento de contaminación detectado.'
+                explicacion =
                     '🚨 Se prevé un deterioro en la calidad del aire durante la próxima hora.';
                 trendIcon = Icons.trending_up;
               }
@@ -247,7 +306,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 100, 16, 24),
                 children: [
-                  // ===== CARD PRINCIPAL =====
+                  // CARD PRINCIPAL
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 500),
                     decoration: BoxDecoration(
@@ -302,7 +361,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                   const SizedBox(height: 20),
 
-                  // ===== CARD PREDICCIÓN =====
+                  // CARD PREDICCIÓN
                   if (forecast != null)
                     Card(
                       color: Colors.white.withOpacity(0.15),
@@ -335,7 +394,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                   Text(
                                     explicacion,
                                     style: const TextStyle(
-                                        fontSize: 14, color: Colors.white70),
+                                        fontSize: 15, color: Colors.white70),
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
@@ -353,7 +412,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
                   const SizedBox(height: 20),
 
-                  // ===== CARD RECOMENDACIONES =====
+                  // CARD RECOMENDACIONES
                   Card(
                     color: color.withOpacity(0.25),
                     elevation: 6,

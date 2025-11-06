@@ -8,9 +8,12 @@ import '../services/notification_service.dart';
 import '../alerts/alert_manager.dart';
 import 'history_notifier.dart';
 
-/// 🔹 Configuración de entorno
+/// 🔹 Control para usar datos simulados o reales
 final useMockProvider = StateProvider<bool>((ref) => false);
-final baseUrlProvider = StateProvider<String>((ref) => 'http://192.168.1.9');
+
+/// 🔹 IP base del dispositivo ESP32 (dinámica)
+/// Se carga desde SharedPreferences en main.dart y puede cambiar desde la app.
+final baseUrlProvider = StateProvider<String>((ref) => '');
 
 /// 🔹 Servicio de comunicación con el dispositivo (HTTP o Mock)
 final deviceServiceProvider = Provider<DeviceService>((ref) {
@@ -18,7 +21,10 @@ final deviceServiceProvider = Provider<DeviceService>((ref) {
   if (useMock) return MockDeviceService();
 
   final baseUrl = ref.watch(baseUrlProvider);
-  return HttpDeviceService(baseUrl);
+
+  // Asegura que la URL tenga formato correcto
+  final url = baseUrl.startsWith('http') ? baseUrl : 'http://$baseUrl';
+  return HttpDeviceService(url);
 });
 
 /// 🔹 Repositorio de datos del aire

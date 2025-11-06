@@ -8,10 +8,22 @@ class HttpDeviceService implements DeviceService {
   final String baseUrl;
   HttpDeviceService(this.baseUrl);
 
+  /// Asegura que la URL tenga formato correcto (por ejemplo: http://192.168.1.9/)
+  String _normalizeUrl(String url) {
+    String u = url.trim();
+    if (!u.startsWith('http://') && !u.startsWith('https://')) {
+      u = 'http://$u';
+    }
+    if (!u.endsWith('/')) {
+      u = '$u/';
+    }
+    return u;
+  }
+
   @override
   Future<AirSample> getCurrentSample() async {
     try {
-      final uri = Uri.parse(baseUrl);
+      final uri = Uri.parse(_normalizeUrl(baseUrl));
       final res = await http.get(uri).timeout(const Duration(seconds: 4));
 
       if (res.statusCode != 200) {
@@ -43,7 +55,7 @@ class HttpDeviceService implements DeviceService {
       try {
         yield await getCurrentSample();
       } catch (e) {
-        // Si hay error, simplemente seguimos el stream sin detenerlo
+        // Si hay error, seguimos sin detener el stream
       }
       await Future.delayed(interval);
     }
